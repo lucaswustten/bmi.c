@@ -1,26 +1,29 @@
 #include <stdio.h>
 
 int main() {
-    float peso, altura, imc;
-
-    printf("Ingrese el peso en kg: ");
-    scanf("%f", &peso);
-
-    printf("Ingrese la altura en metros: ");
-    scanf("%f", &altura);
-
-    if (altura <= 0) 
-        printf("La altura debe ser un numero positivo.\n");
-
-    imc = peso / (altura * altura);
-
-    printf("Su indice de masa corporal es: %.2f\n", imc);
+	float peso, altura, imc;
+	
+	printf("Ingrese el peso en kg: ");
+	scanf("%f", &peso);
+	while (peso <= 0){
+		printf("Ingrese una cantidad positiva: ");
+		scanf("%d", &peso);}
+		
+	printf("Ingrese la altura en metros: ");
+	scanf("%f", &altura);
+	while (altura<= 0){
+		printf("Ingrese una cantidad positiva: ");
+		scanf("%d", &altura);}
+	
+	imc = peso / (altura * altura);
+	
+	printf("Su indice de masa corporal es: %.2f\n", imc);
 	printf("\nindice | Condicion\n");
-    printf("-----------------------------\n");
-    printf("<18.5  | Bajo peso\n");
-    printf("18.5-24.9 | Normal\n");
-    printf("25.0-29.9 | Sobrepeso\n");
-    printf(">=30   | Obesidad\n");
+	printf("-----------------------------\n");
+	printf("<18.5  | Bajo peso\n");
+	printf("18.5-24.9 | Normal\n");
+	printf("25.0-29.9 | Sobrepeso\n");
+	printf(">=30   | Obesidad\n");
 	
 	printf("\nSu condicion es:");
 	
@@ -32,7 +35,7 @@ int main() {
 		printf("Sobrepeso");
 	else if ( imc>=30)
 		printf("Obesidad");
-
-    return 0;
-	}
+	
+	return 0;
+}
 
