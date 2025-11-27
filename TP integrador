@@ -1,0 +1,164 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <curl/curl.h>
+#include <time.h>
+
+struct memory {
+	char *response;
+	size_t size;
+};
+
+static size_t cb(char *data, size_t size, size_t nmemb, void *clientp)
+{
+	size_t realsize = size * nmemb;
+	struct memory *mem = clientp;
+	
+	char *ptr = realloc(mem->response, mem->size + realsize + 1);
+	if(!ptr)
+		return 0;  
+	
+	mem->response = ptr;
+	memcpy(&(mem->response[mem->size]), data, realsize);
+	mem->size += realsize;
+	mem->response[mem->size] = 0;
+	
+	return realsize;
+}
+
+int main(void)
+{
+	CURLcode res;
+	CURL *curl = curl_easy_init();
+	struct memory chunk = {0};
+	unsigned long long last_update = 0;
+	
+	FILE *f = fopen("token.txt", "r");
+	if (f == NULL) {
+		printf("No pudo abrir el archivo.\n");
+		return 1;
+	}
+	
+	char *token;
+	fscanf(f, "%s", token);
+	fclose(f);
+	
+	if(curl) {
+		while(1){
+			chunk.response = NULL;
+			chunk.size = 0;
+			
+			char url[512];
+			sprintf(url,"https://api.telegram.org/bot%s/getUpdates?offset=%llu", token, last_update);
+			
+			curl_easy_setopt(curl, CURLOPT_URL, url);
+			curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+			curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, cb);
+			curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&chunk);
+			
+			res = curl_easy_perform(curl);
+			if (res != 0)
+				printf("Error Codigo: %d\n", res);
+			
+			char *last = chunk.response;
+			char *temp;
+			while ((temp = strstr(last, "\"update_id\":"))) {
+				last = temp + 12;
+				last_update = strtoull(last, NULL, 10) + 1;
+			}
+			
+			char *pos_chat = strstr(chunk.response, "\"chat\":{\"id\":");
+			unsigned long long chat_id = 0;
+			if (pos_chat) {
+				pos_chat += strlen("\"chat\":{\"id\":");
+				chat_id = strtoull(pos_chat, NULL, 10);
+			}
+			
+			char text[256] = {0};
+			char *pos_text = strstr(chunk.response, "\"text\":\"");
+			if (pos_text) {
+				pos_text += 8;  
+				
+				strncpy(text, pos_text, sizeof(text)-1);
+				text[sizeof(text)-1] = 0;
+				
+				char *q = strchr(text, '"');
+				if (q) *q = 0;}
+			
+			char *pos_name = strstr(chunk.response, "\"first_name\":\"");
+			char name[256] = {0};
+			if (pos_name) {
+				pos_name += 14;
+				strncpy(name, pos_name, sizeof(name)-1);
+				name[sizeof(name)-1] = 0;
+				
+				char *q = strchr(name, '"');
+				if (q) *q = 0;
+			} 
+			
+			char bot_reply[256] = {0};
+			if (strstr(text, "hola") || strstr(text, "Hola")){
+				chunk.response = NULL;
+				chunk.size = 0;
+				char reply_url[512];
+				sprintf(reply_url, "https://api.telegram.org/bot%s/sendMessage?chat_id=%llu&text=Hola,%%20%s", token, chat_id, name);
+				curl_easy_setopt(curl, CURLOPT_URL, reply_url);
+				curl_easy_perform(curl);
+				
+				char *pos_bot = strstr(chunk.response, "\"text\":\"");
+				if (pos_bot) {
+					pos_bot += 8; // saltar "text":"
+					strncpy(bot_reply, pos_bot, sizeof(bot_reply)-1);
+					char *q = strchr(bot_reply, '"');
+					if (q) *q = 0;
+				}
+			}
+			
+			if (strstr(text, "chau") || strstr(text, "Chau")){
+				chunk.response = NULL;
+				chunk.size = 0;
+				char reply_url[512];
+				sprintf(reply_url, "https://api.telegram.org/bot%s/sendMessage?chat_id=%llu&text=Nos%%20vemos,%%20%s", token, chat_id, name);
+				curl_easy_setopt(curl, CURLOPT_URL, reply_url);
+				curl_easy_perform(curl);
+				
+				char *pos_bot = strstr(chunk.response, "\"text\":\"");
+				if (pos_bot) {
+					pos_bot += 8; // saltar "text":"
+					strncpy(bot_reply, pos_bot, sizeof(bot_reply)-1);
+					char *q = strchr(bot_reply, '"');
+					if (q) *q = 0;
+				}
+			}
+			
+			if(name != " " && text != " "){
+			char *tiempo;
+			char *date = strstr(chunk.response, "\"date\"");
+			if(date){
+				date += 7;
+				long timestamp_json = atol(date);
+				time_t timestamp = (time_t)timestamp_json;
+				tiempo = ctime(&timestamp);
+				tiempo[strcspn(tiempo, "\n")] = '\0';
+			
+			FILE *fp = fopen("registro.txt", "a");
+			if (fp == NULL) {
+				printf("No pudo abrir el archivo.\n");
+				return 1;
+			}
+			
+			fprintf(fp, "%s -%s: %s\n", tiempo, name, text);
+			fprintf(fp, "%s -BOT: %s\n", tiempo, bot_reply);
+			fclose(fp);}
+			}
+		}
+		
+		
+		free(chunk.response);
+		sleep(2);
+	}
+	curl_easy_cleanup(curl);
+	return 0;
+}
